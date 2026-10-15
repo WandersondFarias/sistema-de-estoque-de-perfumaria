@@ -173,7 +173,7 @@ main {
 }
 
 .btn--primary:hover {
-  box-shadow: 0 8px 24px rgba(124, 58, 237, .5);
+  box-shadow: 0 8px 24px rgb(146, 3, 3);
   transform: translateY(-1px);
 }
 
