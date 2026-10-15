@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Sistema de controle de estoque para perfumaria: produtos, entradas, saídas e histórico." />
+  <title>Essência • Controle de Estoque</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script>
+    // Aplica o tema salvo antes de renderizar (evita "piscar")
+    (function () {
+      try {
+        var saved = localStorage.getItem('perfumaria.tema');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', saved || (prefersDark ? 'dark' : 'light'));
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <div class="brand">
+        <span class="brand__icon">✦</span>
+        <div>
+          <h1 class="brand__name">Essência</h1>
+          <p class="brand__tag">Controle de estoque de perfumaria</p>
+        </div>
+      </div>
+
+      <div class="topbar__actions">
+        <button class="btn btn--ghost" id="btnExport" title="Exportar e importar dados">⇅ Dados</button>
+        <button class="btn btn--primary" id="btnAdd">＋ Novo produto</button>
+        <button class="icon-btn" id="btnTheme" aria-label="Alternar tema claro/escuro" title="Alternar tema">
+          <span class="icon-sun">☀️</span><span class="icon-moon">🌙</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Indicadores -->
+    <section class="stats" aria-label="Resumo do estoque">
+      <article class="stat">
+        <span class="stat__icon stat__icon--a">🧴</span>
+        <div><p class="stat__label">Produtos</p><p class="stat__value" id="statProducts">0</p></div>
+      </article>
+      <article class="stat">
+        <span class="stat__icon stat__icon--b">📦</span>
+        <div><p class="stat__label">Unidades em estoque</p><p class="stat__value" id="statUnits">0</p></div>
+      </article>
+      <article class="stat">
+        <span class="stat__icon stat__icon--c">💰</span>
+        <div><p class="stat__label">Valor em estoque (venda)</p><p class="stat__value" id="statValue">R$ 0,00</p></div>
+      </article>
+      <article class="stat">
+        <span class="stat__icon stat__icon--d">⚠️</span>
+        <div><p class="stat__label">Estoque baixo / esgotado</p><p class="stat__value" id="statLow">0</p></div>
+      </article>
+    </section>
+
+    <!-- Abas -->
+    <nav class="tabs" role="tablist">
+      <button class="tab is-active" role="tab" data-tab="estoque">Estoque</button>
+      <button class="tab" role="tab" data-tab="historico">Movimentações</button>
+    </nav>
+
+    <!-- ESTOQUE -->
+    <section id="tab-estoque" class="panel">
+      <div class="toolbar">
+        <div class="search">
+          <span>🔍</span>
+          <input type="search" id="searchProducts" placeholder="Buscar por nome ou marca..." autocomplete="off" />
+        </div>
+        <select id="filterCategory" aria-label="Filtrar por categoria"></select>
+        <select id="filterStatus" aria-label="Filtrar por situação">
+          <option value="">Todas as situações</option>
+          <option value="ok">Em estoque</option>
+          <option value="low">Estoque baixo</option>
+          <option value="out">Esgotado</option>
+        </select>
+        <select id="sortProducts" aria-label="Ordenar">
+          <option value="name">Nome (A–Z)</option>
+          <option value="recent">Mais recentes</option>
+          <option value="qtyAsc">Menor estoque</option>
+          <option value="qtyDesc">Maior estoque</option>
+          <option value="priceAsc">Menor preço</option>
+          <option value="priceDesc">Maior preço</option>
+        </select>
+      </div>
+
+      <div class="grid" id="productGrid"></div>
+
+      <div class="empty" id="emptyProducts" hidden>
+        <div class="empty__icon">🌸</div>
+        <h3>Nenhum produto encontrado</h3>
+        <p>Cadastre seu primeiro perfume ou carregue alguns exemplos para testar o sistema.</p>
+        <div class="empty__actions">
+          <button class="btn btn--primary" id="btnAddEmpty">＋ Cadastrar produto</button>
+          <button class="btn btn--ghost" id="btnSeed">Carregar exemplos</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTÓRICO -->
+    <section id="tab-historico" class="panel" hidden>
+      <div class="toolbar">
+        <div class="search">
+          <span>🔍</span>
+          <input type="search" id="searchMoves" placeholder="Buscar por produto ou observação..." autocomplete="off" />
+        </div>
+        <select id="filterMoveType" aria-label="Filtrar por tipo">
+          <option value="">Entradas e saídas</option>
+          <option value="in">Somente entradas</option>
+          <option value="out">Somente saídas</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Data</th><th>Produto</th><th>Tipo</th><th class="num">Qtd.</th><th class="num">Valor total</th><th>Observação</th>
+            </tr>
+          </thead>
+          <tbody id="movesBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="emptyMoves" hidden>
+        <div class="empty__icon">🧾</div>
+        <h3>Sem movimentações</h3>
+        <p>As entradas e saídas registradas aparecerão aqui.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Essência • Sistema de estoque de perfumaria — dados salvos no seu navegador.</p>
+  </footer>
+
+  <!-- MODAL: PRODUTO -->
+  <dialog id="dlgProduct" class="modal">
+    <form id="formProduct" method="dialog" novalidate>
+      <header class="modal__head">
+        <h2 id="dlgProductTitle">Novo produto</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Fechar">✕</button>
+      </header>
+
+      <div class="modal__body form-grid">
+        <input type="hidden" id="pId" />
+
+        <label class="field field--full">
+          <span>Nome do perfume *</span>
+          <input type="text" id="pName" required maxlength="80" placeholder="Ex.: Sauvage Eau de Parfum" />
+        </label>
+
+        <label class="field">
+          <span>Marca *</span>
+          <input type="text" id="pBrand" required maxlength="60" placeholder="Ex.: Dior" />
+        </label>
+
+        <label class="field">
+          <span>Categoria</span>
+          <select id="pCategory"></select>
+        </label>
+
+        <label class="field">
+          <span>Volume (ml)</span>
+          <input type="number" id="pSize" min="0" step="1" placeholder="100" />
+        </label>
+
+        <label class="field">
+          <span>Estoque mínimo</span>
+          <input type="number" id="pMin" min="0" step="1" value="3" />
+        </label>
+
+        <label class="field">
+          <span>Preço de custo (R$) *</span>
+          <input type="number" id="pCost" min="0" step="0.01" required placeholder="0,00" />
+        </label>
+
+        <label class="field">
+          <span>Preço de venda (R$) *</span>
+          <input type="number" id="pPrice" min="0" step="0.01" required placeholder="0,00" />
+        </label>
+
+        <label class="field field--full">
+          <span>Quantidade em estoque</span>
+          <input type="number" id="pQty" min="0" step="1" value="0" />
+          <small class="hint" id="pQtyHint"></small>
+        </label>
+
+        <p class="form-error" id="pError" role="alert" hidden></p>
+      </div>
+
+      <footer class="modal__foot">
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn btn--primary">Salvar produto</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- MODAL: MOVIMENTAÇÃO -->
+  <dialog id="dlgMove" class="modal modal--sm">
+    <form id="formMove" method="dialog" novalidate>
+      <header class="modal__head">
+        <h2 id="dlgMoveTitle">Movimentar estoque</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Fechar">✕</button>
+      </header>
+
+      <div class="modal__body form-grid">
+        <input type="hidden" id="mId" />
+        <p class="move-product field--full" id="mProduct"></p>
+
+        <div class="segmented field--full" role="radiogroup" aria-label="Tipo de movimentação">
+          <label><input type="radio" name="mType" value="in" checked /><span>⬇ Entrada</span></label>
+          <label><input type="radio" name="mType" value="out" /><span>⬆ Saída</span></label>
+        </div>
+
+        <label class="field">
+          <span>Quantidade *</span>
+          <input type="number" id="mQty" min="1" step="1" value="1" required />
+        </label>
+
+        <label class="field">
+          <span>Valor unitário (R$)</span>
+          <input type="number" id="mUnit" min="0" step="0.01" />
+        </label>
+
+        <label class="field field--full">
+          <span>Observação</span>
+          <input type="text" id="mNote" maxlength="120" placeholder="Ex.: Compra do fornecedor, venda no balcão..." />
+        </label>
+
+        <p class="hint field--full" id="mHint"></p>
+        <p class="form-error field--full" id="mError" role="alert" hidden></p>
+      </div>
+
+      <footer class="modal__foot">
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn btn--primary">Registrar</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- MODAL: CONFIRMAR EXCLUSÃO -->
+  <dialog id="dlgConfirm" class="modal modal--sm">
+    <div class="modal__head"><h2>Excluir produto?</h2></div>
+    <div class="modal__body">
+      <p id="confirmText"></p>
+    </div>
+    <footer class="modal__foot">
+      <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+      <button type="button" class="btn btn--danger" id="btnConfirmDelete">Excluir</button>
+    </footer>
+  </dialog>
+
+  <!-- MODAL: DADOS -->
+  <dialog id="dlgData" class="modal modal--sm">
+    <header class="modal__head">
+      <h2>Dados e backup</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Fechar">✕</button>
+    </header>
+    <div class="modal__body data-actions">
+      <button class="btn btn--ghost" id="btnCsv">📄 Exportar estoque (CSV)</button>
+      <button class="btn btn--ghost" id="btnJson">💾 Backup completo (JSON)</button>
+      <label class="btn btn--ghost" for="fileImport">📥 Importar backup (JSON)</label>
+      <input type="file" id="fileImport" accept="application/json,.json" hidden />
+      <button class="btn btn--danger-ghost" id="btnReset">🗑 Apagar todos os dados</button>
+    </div>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
